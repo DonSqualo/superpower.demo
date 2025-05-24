@@ -1,0 +1,222 @@
+<head>
+    <!-- GSAP (for ScrollTriggers) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@latest/bundled/lenis.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+	<script src="https://unpkg.com/lenis@1.3.3/dist/lenis.min.js"></script> 
+</head>
+
+<body class=" ">
+	<div id="intro-video" class="" >
+		<div class="absolute inset-0 h-full h-full flex justify-center items-center z-10"><h1 class="text-5xl text-white text-center">Peak health<br> starts now</h1></div>
+		<video autoplay muted class="object-cover h-screen w-full" src="https://superpower.com/landing/videos/hero-scroll-video-720p.mp4" >h</video>
+		<video muted class="hidden reversed object-cover h-screen w-full" src="https://res.cloudinary.com/deepwave-org/video/upload/v1748048429/hero-scroll-reversed_dsk1l4.mp4" video>
+		
+	</div>
+	<div id="nextSection" class="w-full h-screen flex justify-center text-center mt-32 text-5xl ">What to expect as a Superpower member</div>
+	<script>
+let isChanging = false
+    function switchVideoVisibility(oldVideo, newVideo) {
+        isChanging = true;
+        const onSeeked = () => {
+            newVideo.classList.remove("hidden");
+            oldVideo.classList.add("hidden");
+            isChanging = false
+        };
+
+        newVideo.addEventListener('seeked', onSeeked, { once: true });
+    }
+	
+function playVideo(video, otherVideo, scaledVelocity) {
+        const isVisible = !video.classList.contains("hidden");
+        if (!isVisible && !isChanging) {
+            switchVideoVisibility(otherVideo, video);
+            return;
+        }
+        if (video.readyState != 4) {
+            // console.log(video.readyState)
+            return;
+        }
+        isChanging = false
+
+        try {
+            const rate = Math.max(0.0625, Math.min(16, scaledVelocity));
+            if (video.playbackRate !== rate) {
+                video.playbackRate = rate;
+            }
+
+            if (video.paused && video.currentTime !== video.duration) {
+                video.play().catch(e => console.warn('Video play failed:', e));
+            }
+        } catch (e) {
+            if (e instanceof DOMException && e.name === "NotSupportedError") {
+                const fallbackRate = Math.max(0.5, Math.min(4, scaledVelocity));
+                video.playbackRate = fallbackRate;
+                if (video.paused && video.currentTime !== video.duration) {
+                    video.play().catch(e => console.warn('Video play failed:', e));
+                }
+            } else {
+                console.error('Video playback error:', e);
+            }
+        }
+    }
+	
+	    function setupAllScrollTriggers() {
+        gsap.registerPlugin(ScrollTrigger);
+
+        // const lenis = new Lenis({
+        //     duration: 1.2,
+        //     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t))
+        // })
+        //
+        // lenis.on("scroll", () => {
+        // });
+
+// Initialize Lenis
+const lenis = new Lenis({
+  autoRaf: true,
+});
+
+// Listen for the scroll event and log the event data
+lenis.on('scroll', (e) => {
+            ScrollTrigger.update();
+});
+
+
+        let currentAnimation = null;
+
+	const videoCont = document.getElementById("intro-video");
+        const video = videoCont.querySelector("video");
+            video.preload = "auto";
+            const videoReversed = videoCont.querySelector("video.reversed");
+            videoReversed.preload = "auto";
+
+            let isPlayingForward = true;
+
+            
+
+            video.addEventListener('ended', () => {
+			video.pause();
+                const triggerPosition = ScrollTrigger.getById("videoContainer").end;
+			const nextSection = document.getElementById("nextSection")
+                console.log("video ended", window.scrollY, triggerPosition, videoCont.getBoundingClientRect().y)
+                if (window.scrollY > triggerPosition) {
+                    return
+                }
+                if (videoCont.getBoundingClientRect().y > 0) {
+                    return
+                }
+                // if (currentAnimation) {
+                //     currentAnimation.abort();
+                // }
+                const controller = new AbortController();
+                currentAnimation = controller;
+                lenis.scrollTo(triggerPosition, {
+                    // offset: -150,
+                    immediate: true,
+                    signal: controller.signal,
+                    onComplete: () => {
+                        if (currentAnimation === controller) {
+                            currentAnimation = null;
+                        }
+                    },
+                    onAbort: () => {
+                        console.log('Scroll animation aborted');
+                    }
+                })
+            });
+
+            videoReversed.addEventListener('ended', () => {
+                console.log("reverse ended")
+                if (videoCont.getBoundingClientRect().y > 0 && videoCont.getBoundingClientRect().y < window.innerHeight * 10) {
+                    return
+                }
+                if (currentAnimation) {
+                    currentAnimation.abort();
+                }
+
+                const controller = new AbortController();
+                currentAnimation = controller;
+                lenis.scrollTo(videoCont.getBoundingClientRect().y  , {
+                    offset: 0,
+                    immediate: true,
+                    signal: controller.signal,
+                    onComplete: () => {
+                        if (currentAnimation === controller) {
+                            currentAnimation = null;
+                        }
+                    },
+                    onAbort: () => {
+                        console.log('Scroll animation aborted');
+                    }
+                })
+            });
+
+            const velocityToPlaybackFactor = 1000
+
+            ScrollTrigger.create({
+                trigger: videoCont,
+                id: "videoContainer",
+                pin: true,
+                start: "top top",
+                // markers: true,
+                end: "+=1000%",
+		direction: "vertical",
+                // onToggle: (e) => {
+                //     if (!e.isActive) {
+                //         return
+                //     }
+                //     if (section.dataset.url) {
+                //         history.replaceState({ path: section.dataset.url }, '', section.dataset.url);
+                //     };
+                // },
+                onEnter: () => {
+                    video.currentTime = 0.1;
+                },
+                onEnterBack: () => {
+                    // videoReversed.currentTime = 0.1;
+                },
+                onUpdate: (e) => {
+                    const scaledVelocity = e.getVelocity() / velocityToPlaybackFactor
+
+			// console.log(scaledVelocity)
+                    if (Math.abs(scaledVelocity) > 16) {
+                        return
+                    }
+                    if (scaledVelocity > 0.2) {
+                        if (!isPlayingForward) {
+                            video.currentTime = video.duration - videoReversed.currentTime;
+                            isPlayingForward = true;
+                        }
+                        playVideo(video, videoReversed, scaledVelocity);
+                    }
+                    else if (scaledVelocity < -0.2 && videoReversed.readyState > 0) {
+                        if (isPlayingForward) {
+                            videoReversed.currentTime = videoReversed.duration - video.currentTime;
+                            isPlayingForward = false;
+                        }
+                        playVideo(videoReversed, video, -1 * scaledVelocity);
+                    }
+                    else {
+			// console.log("pause")
+                        video.pause();
+                        videoReversed.pause();
+                    }
+                },
+            });
+        }
+    
+    document.addEventListener('DOMContentLoaded', function () {
+        setupAllScrollTriggers();
+
+        ScrollTrigger.refresh();
+
+    })
+
+
+
+	</script>
+</body>
+
